@@ -58,7 +58,7 @@ bool registeringCreatureAnimations
 int function registerCreatureAnimations()
 	if !registeringCreatureAnimations
 		registeringCreatureAnimations = true
-		debugMsg("SLAL: registering animations")
+		debugMsg("SLAL: registering Creature animations")
 		PrepareFactory()
 
 		int enableState = slalData.getEnableState()
@@ -73,7 +73,7 @@ int function registerCreatureAnimations()
 			animID = JMap.nextKey(anims, animID)
 		endWhile
 
-		debugMsg("SLAL: finished registering " + numRegistered + " animations")
+		debugMsg("SLAL: finished registering " + numRegistered + " Creature animations")
 		registeringCreatureAnimations = false
 		return numRegistered
 	endIf
@@ -107,9 +107,11 @@ int function registerCategoryAnimations(string catName)
     return numRegistered
 endFunction
 
-function updateJsonSettings()
+int function updateJsonSettings()
+    debugMsg("SLAL: updating animations")
     int anims = slalData.getAnimations()
     string animID = JMap.nextKey(anims)
+    int numUpdated = 0
     while animID
         sslAnimationSlots animSlots = getSlotsByAnimID(animID)
         int sexlabID = animSlots.FindByRegistrar(animID)
@@ -120,10 +122,47 @@ function updateJsonSettings()
             anim.Enabled  = true
 
             InitAnimSlot(animSlots, sexlabID, animId, "OnRegisterAnim")
+			numUpdated += 1
         endIf
 
         animID = JMap.nextKey(anims, animID)
     endWhile
+    debugMsg("SLAL: finished update " + numUpdated + " animations")
+    return numUpdated
+endFunction
+
+; Update the JSON Settings from a specific category
+; Other categories will be ignored
+int function updateCategoryJsonSettings(string catName)
+    debugMsg("SLAL: updating " + catName + " animations")
+    int enableState = slalData.getEnableState()
+    int anims = slalData.getAnimations()
+    int catAnims = slalData.getCategoryAnims(catName)
+    int numAnims = JArray.count(catAnims)
+
+    int n = 0
+    int numUpdated = 0
+    while n < numAnims
+        string animID = JArray.getStr(catAnims, n)
+		int animInfo = JMap.getObj(anims, animID)
+		sslAnimationSlots animSlots = getSlots(animInfo)
+
+        int sexlabID = animSlots.FindByRegistrar(animID)
+        if sexlabID != -1
+            sslBaseAnimation anim = animSlots.GetBySlot(sexlabID)
+            anim.Initialize()
+            anim.Registry = animId
+            anim.Enabled  = true
+
+            InitAnimSlot(animSlots, sexlabID, animId, "OnRegisterAnim")
+			numUpdated += 1
+        endIf
+
+        n += 1
+    endWhile
+
+    debugMsg("SLAL: finished update " + numUpdated + " animations")
+    return numUpdated
 endFunction
 
 bool function registerAnimIfEnabled(string animID, int anims, int enableState)

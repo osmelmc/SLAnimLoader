@@ -67,7 +67,7 @@ event OnPageReset(string page)
     AddTextOptionST("EnableAll", "$SLAL_EnableAll", "$SLAL_ClickHere")
     AddTextOptionST("DisableAll", "$SLAL_DisableAll", "$SLAL_ClickHere")
     AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_ClickHere", (!Ready) as int)
-    AddEmptyOption()
+    AddTextOptionST("ReapplyJSON", "$SLAL_ReapplyJSON", "$SLAL_ClickHere", (!Ready) as int)
     AddHeaderOption("$SLAL_Animations")
     AddHeaderOption("")
 
@@ -190,7 +190,7 @@ state RegisterAnims
 		Ready = True
         SetTextOptionValueST("$SLAL_ClickHere")
         SetOptionFlagsST(OPTION_FLAG_NONE)
-        ShowMessage("$SLAL_NewAnimationsRegistered{{" + numRegistered + "}", false)
+        ShowMessage("$SLAL_NewAnimationsRegistered{" + numRegistered + "}", false)
 		ForcePageReset()
     endEvent
 
@@ -306,15 +306,23 @@ state ReapplyJSON
     event OnSelectST()
         SetOptionFlagsST(OPTION_FLAG_DISABLED)
         SetTextOptionValueST("$SLAL_Updating")
+		Ready = False
 
         ; Reload the JSON data before applying changes
         string[] oldPages = getPageNames()
         int numErrors = slalData.reloadData()
         string[] newPages = getPageNames()
 
-        ; Update the settings in already registered animations
-        Loader.updateJsonSettings()
+        ; Update the settings in already registered animations        
+        if CurrentPage == Pages[0]
+            Loader.updateJsonSettings()
+        else
+            Loader.updateCategoryJsonSettings(CurrentPage)
+            ; Redraw the page, so the toggles will correctly reflect the registration state
+            ForcePageReset()
+        endIf
 
+		Ready = True
         SetTextOptionValueST("$SLAL_ClickHere")
         SetOptionFlagsST(OPTION_FLAG_NONE)
     endEvent
