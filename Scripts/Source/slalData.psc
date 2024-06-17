@@ -13,6 +13,25 @@ function errorMsg(string msg) global
     Debug.Notification("SLAL error: " + msg)
 endFunction
 
+String Function CondString(Bool condition, String trueString = "", String falseString = "") global
+	If condition
+		Return trueString
+	EndIf
+	Return falseString
+EndFunction
+
+bool Function IsPluginInstalled(string name) global
+	return ((SKSE.GetScriptVersionRelease() >= 64 && Game.IsPluginInstalled(name)) || Game.GetModByName(name) != 255)
+endFunction
+
+bool Function IsJContainersInstalled() global
+	return SKSE.GetPluginVersion("JContainers") >= 0 || SKSE.GetPluginVersion("JContainers64") >= 0
+endFunction
+
+bool Function IsPapyrusUtilInstalled() global
+	return SKSE.GetPluginVersion("papyrusutil") >= 1 || SKSE.GetPluginVersion("papyrusutil plugin") >= 1
+endFunction
+
 ; Returns a JMap of {Category Name -> JArray of animID strings}
 int function getCategories() global
     int categories = JDB.solveObj(".SLAL.categories")

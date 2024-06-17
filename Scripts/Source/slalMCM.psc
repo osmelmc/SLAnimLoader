@@ -10,6 +10,9 @@ bool Property verboseLogs = false Auto
 ; This is only valid within a single animation page.  We rebuild it each
 ; time an animation page is opened.
 int optionIDs = 0
+bool bSL = False
+bool bJC = False
+bool bPU = False
 
 function debugMsg(string msg)
     slalData.debugMsg(msg)
@@ -23,8 +26,14 @@ event OnConfigOpen()
     ; Reload the JSON data automatically each time the MCM is opened
     slalData.reloadData()
 
-    Pages = getPageNames()
-    optionIDs = JValue.retain(JMap.object())
+	bSL = slalData.IsPluginInstalled("SexLab.esm")
+	bJC = slalData.IsJContainersInstalled()
+	bPU = slalData.IsPapyrusUtilInstalled()
+	
+	If bSL && bJC && bPU
+		Pages = getPageNames()
+		optionIDs = JValue.retain(JMap.object())
+	EndIf
 endEvent
 
 event OnConfigClose()
@@ -32,62 +41,74 @@ event OnConfigClose()
 endEvent
 
 event OnPageReset(string page)
-    SetCursorFillMode(LEFT_TO_RIGHT)
-    if page == ""
+    If page == ""
         ; Note that one call to OnPageReset("") is made before OnConfigOpen()
         ; runs.  Therefore this page shouldn't do anything that needs data set
         ; up by OnConfigOpen().
-        AddHeaderOption("$SLAL_ModName")
-        return
-    endIf
-
-    if page == Pages[0]
-        AddHeaderOption("$SLAL_GeneralOptions")
-        AddHeaderOption("")
-
-        AddTextOptionST("EnableAll", "$SLAL_EnableAll", "$SLAL_ClickHere")
-        AddTextOptionST("DisableAll", "$SLAL_DisableAll", "$SLAL_ClickHere")
-		if !Ready && Percent >= 100
-			AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_Working", OPTION_FLAG_DISABLED)
-		else
+		If bSL && bJC && bPU
+			LoadCustomContent("SLAL/logo.dds", 184, 31)
+		Else
+			SetCursorFillMode(TOP_TO_BOTTOM)
+			AddHeaderOption("$SLAL_ModName")
+			AddTextOption("SexLab Framework", slalData.CondString(bSL, "<font color='#00FF00'>ok</font>", "<font color='#FF0000'>X</font>"))
+			AddTextOption("PapyrusUtil", slalData.CondString(bPU, "<font color='#00FF00'>ok</font>", "<font color='#FF0000'>X</font>"))
+			AddTextOption("JContainers", slalData.CondString(bJC, "<font color='#00FF00'>ok</font>", "<font color='#FF0000'>X</font>"))
+		EndIf
+    Else
+	
+		UnloadCustomContent()
+		SetCursorFillMode(LEFT_TO_RIGHT)
+		
+		If page == Pages[0]
+			
+			AddHeaderOption("$SLAL_GeneralOptions")
+			AddHeaderOption("")
+			
+			AddTextOptionST("EnableAll", "$SLAL_EnableAll", "$SLAL_ClickHere")
+			AddTextOptionST("DisableAll", "$SLAL_DisableAll", "$SLAL_ClickHere")
+			if !Ready && Percent >= 100
+				AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_Working", OPTION_FLAG_DISABLED)
+			else
+				AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_ClickHere", (!Ready) as int)
+			endIf
+			AddTextOptionST("ReloadJSON", "$SLAL_ReloadJSON", "$SLAL_ClickHere", (!Ready) as int)
+			AddTextOptionST("RebuildAnimRegistry", "$SLAL_ResetAnimationRegistry", "$SLAL_ClickHere", (!Ready) as int)
+			AddTextOptionST("ReapplyJSON", "$SLAL_ReapplyJSON", "$SLAL_ClickHere", (!Ready) as int)
+			if !Ready && Percent < 101
+				AddTextOptionST("AnimationCount", "$SLAL_CountAnimations", "$SLAL_Working{"+Percent+"}", OPTION_FLAG_DISABLED)
+			else
+				AddTextOptionST("AnimationCount", "$SLAL_CountAnimations", "$SLAL_ClickHere", (!Ready) as int)
+			endIf
+			AddToggleOptionST("VerboseLogs", "$SLAL_VerboseLogs", verboseLogs)
+			
+		Else
+			
+			AddTextOptionST("EnableAll", "$SLAL_EnableAll", "$SLAL_ClickHere")
+			AddTextOptionST("DisableAll", "$SLAL_DisableAll", "$SLAL_ClickHere")
 			AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_ClickHere", (!Ready) as int)
+			AddTextOptionST("ReapplyJSON", "$SLAL_ReapplyJSON", "$SLAL_ClickHere", (!Ready) as int)
+			AddHeaderOption("$SLAL_Animations")
+			AddHeaderOption("")
+
+			int enableState = slalData.getEnableState()
+
+			; Must call Loader.PrepareFactory() before checking if animations are
+			; registered or not.
+			Loader.PrepareFactory()
+
+			JMap.clear(optionIDs)
+			int anims = slalData.getAnimations()
+			int catAnims = slalData.getCategoryAnims(page)
+			int numAnims = JArray.count(catAnims)
+			int n = 0
+			while n < numAnims
+				string animID = JArray.getStr(catAnims, n)
+				int animInfo = JMap.getObj(anims, animID)
+				addAnimationToggle(animInfo, enableState)
+				n += 1
+			endWhile
 		endIf
-        AddTextOptionST("ReloadJSON", "$SLAL_ReloadJSON", "$SLAL_ClickHere", (!Ready) as int)
-        AddTextOptionST("RebuildAnimRegistry", "$SLAL_ResetAnimationRegistry", "$SLAL_ClickHere", (!Ready) as int)
-        AddTextOptionST("ReapplyJSON", "$SLAL_ReapplyJSON", "$SLAL_ClickHere", (!Ready) as int)
-		if !Ready && Percent < 101
-			AddTextOptionST("AnimationCount", "$SLAL_CountAnimations", "$SLAL_Working{"+Percent+"}", OPTION_FLAG_DISABLED)
-		else
-			AddTextOptionST("AnimationCount", "$SLAL_CountAnimations", "$SLAL_ClickHere", (!Ready) as int)
-		endIf
-        AddToggleOptionST("VerboseLogs", "$SLAL_VerboseLogs", verboseLogs)
-        return
-    endIf
-
-    AddTextOptionST("EnableAll", "$SLAL_EnableAll", "$SLAL_ClickHere")
-    AddTextOptionST("DisableAll", "$SLAL_DisableAll", "$SLAL_ClickHere")
-    AddTextOptionST("RegisterAnims", "$SLAL_RegisterAnimations", "$SLAL_ClickHere", (!Ready) as int)
-    AddTextOptionST("ReapplyJSON", "$SLAL_ReapplyJSON", "$SLAL_ClickHere", (!Ready) as int)
-    AddHeaderOption("$SLAL_Animations")
-    AddHeaderOption("")
-
-    int enableState = slalData.getEnableState()
-
-    ; Must call Loader.PrepareFactory() before checking if animations are
-    ; registered or not.
-    Loader.PrepareFactory()
-
-    JMap.clear(optionIDs)
-    int anims = slalData.getAnimations()
-    int catAnims = slalData.getCategoryAnims(page)
-    int numAnims = JArray.count(catAnims)
-    int n = 0
-    while n < numAnims
-        string animID = JArray.getStr(catAnims, n)
-        int animInfo = JMap.getObj(anims, animID)
-        addAnimationToggle(animInfo, enableState)
-        n += 1
-    endWhile
+	endIf
 endEvent
 
 string[] function getPageNames()
@@ -255,7 +276,7 @@ state AnimationCount
 		Percent = 101
         int humanTotal = humanCount + humanToRegister - humanToUnregister;
         int creatureTotal = creatureCount + creatureToRegister - creatureToUnregister;
-        ShowMessage("$SLAL_HumanAnimations_{"+humanCount+"}currentlyRegistered_{"+humanToRegister+"}toRegister_{"+humanToUnregister+"}toUnregister_newTotal{"+humanTotal+"}\nCreatureAnimations_{"+creatureCount+"}currentlyRegistered_{"+creatureToRegister+"}toRegister_{"+creatureToUnregister+"}toUnregister_newTotal{"+creatureTotal+"}", false)
+        ShowMessage("$SLAL_HumanAnimations_{"+humanCount+"}currentlyRegistered_{"+humanToRegister+"}toRegister_{"+humanToUnregister+"}toUnregister_newTotal{"+humanTotal+"}CreatureAnimations_{"+creatureCount+"}currentlyRegistered_{"+creatureToRegister+"}toRegister_{"+creatureToUnregister+"}toUnregister_newTotal{"+creatureTotal+"}", false)
     endEvent
 endState
 
